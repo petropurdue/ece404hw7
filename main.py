@@ -7,6 +7,9 @@
 
 from BitVector import *
 import sys
+import warnings
+
+
 
 
 class SHA256(object):
@@ -18,7 +21,6 @@ class SHA256(object):
         if 'message_in_ascii' in kwargs: self.bv = BitVector(textstring=kwargs.pop('message_in_ascii'))
 
     def sha256(self):
-        #**SHOULD THIS SAY 32 BIT**
         #  The 8 32-words used for initializing the 512-bit hash buffer before we start scanning the
         #  input message block for its hashing. See page 13 (page 17 of the PDF) of the NIST standard.
         #  Note that the hash buffer consists of 8 32-bit words named h0, h1, h2, h3, h4, h5, h6, and h7.
@@ -49,20 +51,20 @@ class SHA256(object):
         K_bv = [BitVector(hexstring=k_constant) for k_constant in K]
 
         #  STEP 1 OF THE HASHING ALGORITHM: Pad the input message so that its length is an integer multiple
-        #                                   of the block size which is 512 bits.  This padding must account
-        #                                   for the fact that the last 64 bit of the padded input must store
+        #                                   of the block size which is 1024 (previously 512) bits.  This padding must account
+        #                                   for the fact that the last 128 (previously 64) bit of the padded input must store
         #                                   length of the input message:
         length = self.bv.length()
         bv1 = self.bv + BitVector(bitstring="1")
         length1 = bv1.length()
-        howmanyzeros = (448 - length1) % 512
+        howmanyzeros = (896 - length1) % 1024 #448 changed to 896, 512 to 1024
         zerolist = [0] * howmanyzeros
         bv2 = bv1 + BitVector(bitlist=zerolist)
-        bv3 = BitVector(intVal=length, size=64)
+        bv3 = BitVector(intVal=length, size=128) #changed from 64 to 128
         bv4 = bv2 + bv3
 
         #  Initialize the array of "words" for storing the message schedule for a block of the input message:
-        words = [None] * 64
+        words = [None] * 64 #changed from 64 to 128
 
         for n in range(0, bv4.length(), 512):
             block = bv4[n:n + 512]
@@ -141,16 +143,21 @@ class SHA256(object):
         return hash_hex_string
 
 def asciifile_to_one_bv(file_name):
-    textbv = BitVector(filename = file_name)
-    finalbv = BitVector(size = 0)
-    while (textbv.more_to_read):
-        bv_read = textbv.read_bits_from_file(64)
-        finalbv+=bv_read
-    textbv.close_file_object()
-    return finalbv
+
+    with open(file_name) as fptr:
+        data = fptr.read()
+    return data
+
+def makebvmult(inputbv,multiple):
+    inputbv.pad_from_right(multiple - len(inputbv) % multiple)
+    return inputbv
 
 if __name__ == '__main__':
     print(sys.argv[1], sys.argv[2])
     textbv = asciifile_to_one_bv(sys.argv[1])
-    hashbrown = SHA256(message=textbv)
+    #textbv = makebvmult(textbv,512)
+
+    potato = SHA256(message=textbv)
+    hashbrown = potato.sha256()
+    print((hashbrown))
 
