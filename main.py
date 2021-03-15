@@ -166,6 +166,11 @@ def makebvmult(inputbv,multiple):
     inputbv.pad_from_right(multiple - len(inputbv) % multiple)
     return inputbv
 
+def writestringtofile(filename, string):
+    fptr = open(filename, "w")
+    fptr.write(string)
+    fptr.close()
+
 if __name__ == '__main__':
     print(sys.argv[1], sys.argv[2])
     textbv = asciifile_to_one_bv(sys.argv[1])
@@ -174,4 +179,6 @@ if __name__ == '__main__':
     potato = SHA256(message=textbv)
     hashbrown = potato.sha256()
     print((hashbrown))
+    print(type(hashbrown))
+    writestringtofile(sys.argv[2],hashbrown)
 
