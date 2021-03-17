@@ -8,10 +8,12 @@
 from BitVector import *
 import sys
 import warnings
+import hashlib
 
 
 
 
+#Original class by Avinash Kak, seehttps://engineering.purdue.edu/kak/compsec/code/Lecture15Code.tar.gz for unmodified version
 class SHA256(object):
 
     def __init__(self, **kwargs):
@@ -24,14 +26,14 @@ class SHA256(object):
         #  The 8 32-words used for initializing the 512-bit hash buffer before we start scanning the
         #  input message block for its hashing. See page 13 (page 17 of the PDF) of the NIST standard.
         #  Note that the hash buffer consists of 8 32-bit words named h0, h1, h2, h3, h4, h5, h6, and h7.
-        h0 = BitVector(hexstring='6a09e667')
-        h1 = BitVector(hexstring='bb67ae85')
-        h2 = BitVector(hexstring='3c6ef372')
-        h3 = BitVector(hexstring='a54ff53a')
-        h4 = BitVector(hexstring='510e527f')
-        h5 = BitVector(hexstring='9b05688c')
-        h6 = BitVector(hexstring='1f83d9ab')
-        h7 = BitVector(hexstring='5be0cd19')
+        h0 = BitVector(hexstring='6a09e667f3bcc908')
+        h1 = BitVector(hexstring='bb67ae8584caa73b')
+        h2 = BitVector(hexstring='3c6ef372fe94f82b')
+        h3 = BitVector(hexstring='a54ff53a5f1d36f1')
+        h4 = BitVector(hexstring='510e527fade682d1')
+        h5 = BitVector(hexstring='9b05688c2b3e6c1f')
+        h6 = BitVector(hexstring='1f83d9abfb41bd6b')
+        h7 = BitVector(hexstring='5be0cd19137e2179')
 
         #  The K constants (also referred to as the "round constants") are used in round-based processing
         #  of each 512-bit input message block.  There is a 32-bit constant for each of the 64 rounds.
@@ -78,7 +80,7 @@ class SHA256(object):
         bv4 = bv2 + bv3
 
         #  Initialize the array of "words" for storing the message schedule for a block of the input message:
-        words = [None] * 64 #changed from 64 to 128
+        words = [None] * 80 #changed from 64 to 128
 
         for n in range(0, bv4.length(), 1024):  #changed from 512 to 1024
             block = bv4[n:n + 1024]              #changed from 512 to 1024
@@ -88,21 +90,21 @@ class SHA256(object):
             #                                   32-bits long.
             #                                   As shown below, the first 16 words of the message schedule
             #                                   are obtained directly from the 1024 (512)-bit input block:
-            words[0:16] = [block[i:i + 32] for i in range(0, 1024, 32)]  #changed from 512 to 1024
+            words[0:16] = [block[i:i + 64] for i in range(0, 1024, 64)]  #changed from 512 to 1024, 32 to 64
             #  Now we need to expand the first 16 32-bit words of the message schedule into a full schedule
-            #  that contains 128 (64) 32-bit words. This involves using the functions sigma0 and sigma1 as shown
+            #  that contains 128 (64) 32 (64)-bit words. This involves using the functions sigma0 and sigma1 as shown
             #  below:
-            for i in range(16, 64): #changed from 64 to 128, reverted
+            for i in range(16, 80): #changed from 64 to 128
                 i_minus_2_word = words[i - 2]
                 i_minus_15_word = words[i - 15]
                 #  The sigma1 function is applied to the i_minus_2_word and the sigma0 function is applied to
                 #  the i_minus_15_word:
-                sigma0 = (i_minus_15_word.deep_copy() >> 7) ^ (i_minus_15_word.deep_copy() >> 18) ^ \
-                         (i_minus_15_word.deep_copy().shift_right(3))
-                sigma1 = (i_minus_2_word.deep_copy() >> 17) ^ (i_minus_2_word.deep_copy() >> 19) ^ \
-                         (i_minus_2_word.deep_copy().shift_right(10))
+                sigma0 = (i_minus_15_word.deep_copy() >> 1) ^ (i_minus_15_word.deep_copy() >> 8) ^ \
+                         (i_minus_15_word.deep_copy().shift_right(7))
+                sigma1 = (i_minus_2_word.deep_copy() >> 19) ^ (i_minus_2_word.deep_copy() >> 61) ^ \
+                         (i_minus_2_word.deep_copy().shift_right(6))
                 words[i] = BitVector(intVal=(int(words[i - 16]) + int(sigma1) + int(words[i - 7]) + \
-                                             int(sigma0)) & 0xFFFFFFFF, size=64)                        #changed from 32 to 64
+                                             int(sigma0)) & 0xFFFFFFFFFFFFFFFF, size=64)                        #changed from 32 to 64
 
             #  Before we can start STEP 3, we need to store the hash buffer contents obtained from the
             #  previous input message block in the variables a,b,c,d,e,f,g,h:
@@ -120,35 +122,35 @@ class SHA256(object):
             #                                   message schedule, words[i],  and i-th round constant, K[i].
             #                                   As you see below, this requires that we first calculate
             #                                   the functions ch, maj, sum_a, and sum_e.
-            for i in range(64): #changed from 64 to 128, reverted
+            for i in range(80): #changed from 64 to 128, reverted
                 ch = (e & f) ^ ((~e) & g)
                 maj = (a & b) ^ (a & c) ^ (b & c)
-                sum_a = ((a.deep_copy()) >> 2) ^ ((a.deep_copy()) >> 13) ^ ((a.deep_copy()) >> 22)
-                sum_e = ((e.deep_copy()) >> 6) ^ ((e.deep_copy()) >> 11) ^ ((e.deep_copy()) >> 25)
+                sum_a = ((a.deep_copy()) >> 28) ^ ((a.deep_copy()) >> 34) ^ ((a.deep_copy()) >> 39)
+                sum_e = ((e.deep_copy()) >> 14) ^ ((e.deep_copy()) >> 18) ^ ((e.deep_copy()) >> 41)
                 t1 = BitVector(intVal=(int(h) + int(ch) + int(sum_e) + int(words[i]) + int(K_bv[i])) & \
-                                      0xFFFFFFFF, size=64) #changed size to 64 (from 32)
-                t2 = BitVector(intVal=(int(sum_a) + int(maj)) & 0xFFFFFFFF, size=64) #changed size to 64 (from 32)
+                                      0xFFFFFFFFFFFFFFFF, size=64) #changed size to 64 (from 32)
+                t2 = BitVector(intVal=(int(sum_a) + int(maj)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed size to 64 (from 32)
                 h = g
                 g = f
                 f = e
-                e = BitVector(intVal=(int(d) + int(t1)) & 0xFFFFFFFF, size=64) #changed size to 64 (from 32)
+                e = BitVector(intVal=(int(d) + int(t1)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed size to 64 (from 32)
                 d = c
                 c = b
                 b = a
-                a = BitVector(intVal=(int(t1) + int(t2)) & 0xFFFFFFFF, size=64) #changed size to 64 (from 32)
+                a = BitVector(intVal=(int(t1) + int(t2)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed size to 64 (from 32)
 
             #  STEP 4 OF THE HASHING ALGORITHM:  The values in the temporary variables a,b,c,d,e,f,g,h
             #                                    AFTER 64 rounds of processing are now mixed with the
             #                                    contents of the hash buffer as calculated for the
             #                                    previous block of the input message:
-            h0 = BitVector(intVal=(int(h0) + int(a)) & 0xFFFFFFFF, size=32)
-            h1 = BitVector(intVal=(int(h1) + int(b)) & 0xFFFFFFFF, size=32)
-            h2 = BitVector(intVal=(int(h2) + int(c)) & 0xFFFFFFFF, size=32)
-            h3 = BitVector(intVal=(int(h3) + int(d)) & 0xFFFFFFFF, size=32)
-            h4 = BitVector(intVal=(int(h4) + int(e)) & 0xFFFFFFFF, size=32)
-            h5 = BitVector(intVal=(int(h5) + int(f)) & 0xFFFFFFFF, size=32)
-            h6 = BitVector(intVal=(int(h6) + int(g)) & 0xFFFFFFFF, size=32)
-            h7 = BitVector(intVal=(int(h7) + int(h)) & 0xFFFFFFFF, size=32)
+            h0 = BitVector(intVal=(int(h0) + int(a)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed from 32 to 64
+            h1 = BitVector(intVal=(int(h1) + int(b)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed from 32 to 64
+            h2 = BitVector(intVal=(int(h2) + int(c)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed from 32 to 64
+            h3 = BitVector(intVal=(int(h3) + int(d)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed from 32 to 64
+            h4 = BitVector(intVal=(int(h4) + int(e)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed from 32 to 64
+            h5 = BitVector(intVal=(int(h5) + int(f)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed from 32 to 64
+            h6 = BitVector(intVal=(int(h6) + int(g)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed from 32 to 64
+            h7 = BitVector(intVal=(int(h7) + int(h)) & 0xFFFFFFFFFFFFFFFF, size=64) #changed from 32 to 64
 
         #  Concatenate the contents of the hash buffer to obtain a 512-element BitVector object:
         message_hash = h0 + h1 + h2 + h3 + h4 + h5 + h6 + h7
@@ -156,8 +158,20 @@ class SHA256(object):
         hash_hex_string = message_hash.getHexStringFromBitVector()
         return hash_hex_string
 
-def asciifile_to_one_bv(file_name):
+    def check(self):
+        h = hashlib.sha512()
 
+        with open('inputfile.txt', "rb") as file:
+            while True:
+                block = file.read(h.block_size)
+                if not block:
+                    break
+                h.update(block)
+
+        with open("check.txt", "w") as file:
+            file.write(h.hexdigest())
+
+def asciifile_to_one_bv(file_name):
     with open(file_name) as fptr:
         data = fptr.read()
     return data
@@ -171,6 +185,9 @@ def writestringtofile(filename, string):
     fptr.write(string)
     fptr.close()
 
+
+
+
 if __name__ == '__main__':
     print(sys.argv[1], sys.argv[2])
     textbv = asciifile_to_one_bv(sys.argv[1])
@@ -179,6 +196,5 @@ if __name__ == '__main__':
     potato = SHA256(message=textbv)
     hashbrown = potato.sha256()
     print((hashbrown))
-    print(type(hashbrown))
     writestringtofile(sys.argv[2],hashbrown)
 
